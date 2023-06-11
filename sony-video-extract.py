@@ -20,8 +20,8 @@ def parse_arguments():
                       help="Source directory path containing the video files (default: current working directory)")
 
   # Add the destination directory argument
-  parser.add_argument("-d", "--destination-directory", nargs="?", default="ProcessedVideos",
-                      help="Destination folder path (default: ProcessedVideos)")
+  parser.add_argument("-d", "--destination-directory", nargs="?", default="ProcessedMedia",
+                      help="Destination folder path (default: ProcessedMedia)")
 
   # Add the include subdirectories switch
   parser.add_argument("-r", "--include-subdirectories", action="store_true",
@@ -52,22 +52,22 @@ class Media:
     self.media_type = self.determine_media_type()
     self.creation_date = self.extract_creation_date()
 
-
   def extract_creation_date(self):
-      # Use ffprobe to extract the creation date metadata
-      if self.media_type == "video":
-        command = [
-            "ffprobe", "-v", "quiet", "-print_format", "compact=print_section=0:nokey=1:escape=csv",
-            "-show_entries", "format_tags=creation_time", self.file_path
-        ]
-        output = subprocess.check_output(command).decode("utf-8").strip()
-        # Parse the creation date
-        creation_date = datetime.datetime.strptime(output, "%Y-%m-%dT%H:%M:%S.%fZ")
-      else:
-        creation_time = os.path.getmtime(self.file_path)
-        creation_date = datetime.datetime.fromtimestamp(creation_time)
+    # Use ffprobe to extract the creation date metadata
+    if self.media_type == "video":
+      command = [
+          "ffprobe", "-v", "quiet", "-print_format", "compact=print_section=0:nokey=1:escape=csv",
+          "-show_entries", "format_tags=creation_time", self.file_path
+      ]
+      output = subprocess.check_output(command).decode("utf-8").strip()
+      # Parse the creation date
+      creation_date = datetime.datetime.strptime(
+          output, "%Y-%m-%dT%H:%M:%S.%fZ")
+    else:
+      creation_time = os.path.getmtime(self.file_path)
+      creation_date = datetime.datetime.fromtimestamp(creation_time)
 
-      return creation_date.strftime("%Y-%m-%d-%H:%M:%S")
+    return creation_date
 
   def determine_media_type(self):
     file_extension = self.file_extension.lower()
@@ -90,46 +90,44 @@ class Media:
   def rename(self, destination_directory):
     # Format the new filename
     new_filename = self.creation_date.strftime(
-        "%Y-%m-%d-%H-%M-%S-") + self.filename
+        "%Y-%m-%d-%H_%M_%S-") + self.filename
 
     # Set the destination file path
     destination_path = os.path.join(destination_directory, new_filename)
 
     # Rename the file and move it to the destination directory
-    Path(self.file_path).rename(destination_path)
+    # Path(self.file_path).rename(destination_path)
+    print(f'Destination Path: {destination_path}')
 
 
 def get_media_files(source_directory, include_subdirectories):
   media_files = []
-  if include_subdirectories:
-    for root, dirs, files in os.walk(source_directory):
-      for file in files:
-        file_path = os.path.join(root, file)
-        media = Media(file_path)
-        if media.is_media:
-          media_files.append(media)
-  else:
-    for file in os.listdir(source_directory):
-      file_path = os.path.join(source_directory, file)
+  for root, dirs, files in os.walk(source_directory):
+    if not include_subdirectories and root != source_directory:
+      continue
+    for file in files:
+      file_path = os.path.join(root, file)
       media = Media(file_path)
       if media.is_media:
         media_files.append(media)
-
   return media_files
 
 
-def rename_videos(source_directory, destination_directory, include_subdirectories):
+def rename_videos(source_directory, destination_directory, include_subdirectories, reverse_sort=False):
 
   media_files = get_media_files(source_directory, include_subdirectories)
-  print(f'Video files found: {media_files}')
-  for media in media_files:
+  sorted_media = sorted(
+      media_files, key=lambda m: m.creation_date, reverse=reverse_sort)
+
+  # print(f'Video files found: {media_files}')
+  for media in sorted_media:
     print(f'Media >>> {media.filename}')
     print(f'      >>> {media.file_path}')
     print(f'      >>> {media.file_extension}')
     print(f'      >>> {media.creation_date}')
     print(f'      >>> {media.is_media}')
+    media.rename(destination_directory)
     print()
-
 
   # for filename in video_files:
   #   file_path = os.path.join(source_directory, filename)
