@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import os
-import datetime
+from datetime import datetime
 import argparse
 from pathlib import Path
 import subprocess
+from PIL import Image
 
 import shutil
 import xml.etree.ElementTree as ET
@@ -61,11 +62,25 @@ class Media:
       ]
       output = subprocess.check_output(command).decode("utf-8").strip()
       # Parse the creation date
-      creation_date = datetime.datetime.strptime(
+      creation_date = datetime.strptime(
           output, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+    elif self.media_type == "image":
+      try:
+        with Image.open(self.file_path) as img:
+          info = img._getexif()
+          if info is not None and 36867 in info:
+            creation_time_str = info[36867]
+            creation_date = datetime.strptime(
+                creation_time_str, '%Y:%m:%d %H:%M:%S')
+
+      except (IOError, OSError, AttributeError):
+        creation_time = os.path.getmtime(self.file_path)
+        creation_date = datetime.fromtimestamp(creation_time)
+
     else:
       creation_time = os.path.getmtime(self.file_path)
-      creation_date = datetime.datetime.fromtimestamp(creation_time)
+      creation_date = datetime.fromtimestamp(creation_time)
 
     return creation_date
 
@@ -87,17 +102,33 @@ class Media:
     else:
       return False
 
-  def rename(self, destination_directory):
+  def rename(self, destination_directory, split_by="year"):
+    # Extract date components
+    year, month, day = self.creation_date.strftime("%Y-%m-%d").split("-")
+    time_slug = self.creation_date.strftime("%H_%M_%S")
+
     # Format the new filename
-    new_filename = self.creation_date.strftime(
-        "%Y-%m-%d-%H_%M_%S-") + self.filename
+    new_filename = f"{year}-{month}-{day}-{time_slug}-{self.filename}"
 
     # Set the destination file path
-    destination_path = os.path.join(destination_directory, new_filename)
+    if split_by == "month":
+      destination_path = os.path.join(
+          destination_directory, year, month, new_filename)
+    elif split_by == "year":
+      destination_path = os.path.join(
+          destination_directory, year, new_filename)
+    elif split_by == "day":
+      destination_path = os.path.join(
+          destination_directory, year, month, day, new_filename)
+    else:
+      destination_path = os.path.join(
+          destination_directory, new_filename)
+    print(f'Destination Path: {destination_path}')
+    return destination_path
 
     # Rename the file and move it to the destination directory
     # Path(self.file_path).rename(destination_path)
-    print(f'Destination Path: {destination_path}')
+    # print(f'Destination Path: {destination_path}')
 
 
 def get_media_files(source_directory, include_subdirectories):
