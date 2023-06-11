@@ -118,7 +118,7 @@ class Media:
     time_slug = self.creation_date.strftime("%H_%M_%S")
 
     # Format the new filename
-    new_filename = f"{year}-{month}-{day}-{time_slug}-{self.filename}"
+    new_filename = f"{year}-{month}-{day}-{time_slug}-{self.filename.lstrip('_')}"
 
     # Set the destination file path
     if group_by == "month":
@@ -231,7 +231,7 @@ if __name__ == "__main__":
     print(f"Group {group_number}:")
     for obj in group_objects:
       # print(obj.creation_date, obj.filename, obj.destination_group)
-      print(f'{obj.rename(destination_directory, group_by="cluster")}')
+      print(f'{obj.rename(destination_directory, group_by=group_by)}')
     print("---")  # Print a separator between groups
 
   print(
