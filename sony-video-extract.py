@@ -5,6 +5,7 @@ import argparse
 from pathlib import Path
 import subprocess
 from PIL import Image
+from datetime import timedelta
 
 import shutil
 import xml.etree.ElementTree as ET
@@ -28,6 +29,10 @@ def parse_arguments():
   parser.add_argument("-r", "--include-subdirectories", action="store_true",
                       default=False, help="Include subdirectories in the source directory")
 
+  # Add the grouping method
+  parser.add_argument("-g", "--group-by", nargs="?", default="month",
+                      help="Group by [year,month,day,cluster]")
+
   # Parse the command-line arguments
   args = parser.parse_args()
 
@@ -35,8 +40,9 @@ def parse_arguments():
   source_directory = args.source_directory
   destination_directory = args.destination_directory
   include_subdirectories = args.include_subdirectories
+  group_by = args.group_by
 
-  return source_directory, destination_directory, include_subdirectories
+  return source_directory, destination_directory, include_subdirectories, group_by
 
 
 class Media:
@@ -52,6 +58,10 @@ class Media:
     self.is_media = self.is_media()
     self.media_type = self.determine_media_type()
     self.creation_date = self.extract_creation_date()
+    self.destination_group = ""
+
+  def set_additional_attributes(self, destination_group):
+    self.destination_group = destination_group
 
   def extract_creation_date(self):
     # Use ffprobe to extract the creation date metadata
@@ -120,6 +130,9 @@ class Media:
     elif split_by == "day":
       destination_path = os.path.join(
           destination_directory, year, month, day, new_filename)
+    elif split_by == "cluster":
+      destination_path = os.path.join(
+          destination_directory, year, self.destination_group, new_filename)
     else:
       destination_path = os.path.join(
           destination_directory, new_filename)
@@ -147,11 +160,9 @@ def get_media_files(source_directory, include_subdirectories):
 def rename_videos(source_directory, destination_directory, include_subdirectories, reverse_sort=False):
 
   media_files = get_media_files(source_directory, include_subdirectories)
-  sorted_media = sorted(
-      media_files, key=lambda m: m.creation_date, reverse=reverse_sort)
 
   # print(f'Video files found: {media_files}')
-  for media in sorted_media:
+  for media in media_files:
     print(f'Media >>> {media.filename}')
     print(f'      >>> {media.file_path}')
     print(f'      >>> {media.file_extension}')
@@ -178,10 +189,49 @@ def rename_videos(source_directory, destination_directory, include_subdirectorie
 #     for media in media_files:
 #         media.rename(destination_directory)
 
+def group_objects_by_datetime(objects, time_threshold):
+  sorted_objects = sorted(objects, key=lambda obj: obj.creation_date)
+
+  grouped_objects = []
+  current_group = [sorted_objects[0]]
+  # Initialize group number
+  group_number = 1
+  # Set Group number for first object
+  sorted_objects[0].set_additional_attributes(group_number)
+
+  for i in range(1, len(sorted_objects)):
+    current_object = sorted_objects[i]
+    previous_object = sorted_objects[i-1]
+    time_diff = current_object.creation_date - previous_object.creation_date
+    if time_diff > time_threshold:
+        # Add the current group to the grouped_objects list with the group number
+      grouped_objects.append((group_number, current_group))
+      current_group = [current_object]
+      group_number += 1  # Increment group number
+    else:
+      current_group.append(current_object)
+    current_object.set_additional_attributes(group_number)
+
+  # Add the last group
+  grouped_objects.append((group_number, current_group))
+
+  return grouped_objects
+
+
 if __name__ == "__main__":
   # Parse the command-line arguments
-  source_directory, destination_directory, include_subdirectories = parse_arguments()
+  source_directory, destination_directory, include_subdirectories, group_by = parse_arguments()
 
-  # Call the rename_videos function
-  rename_videos(source_directory, destination_directory,
-                include_subdirectories)
+  time_threshold = timedelta(hours=24)  # Example time threshold of 1 hour
+  media_objects = get_media_files(source_directory, include_subdirectories)
+  grouped_objects = group_objects_by_datetime(media_objects, time_threshold)
+
+  # Process or print the grouped objects with group numbers
+  for group_number, group_objects in grouped_objects:
+    print(f"Group {group_number}:")
+    for obj in group_objects:
+      print(obj.creation_date, obj.filename, obj.destination_group)
+    print("---")  # Print a separator between groups
+
+  print(
+      f'Proof, that objects are changed in place. Group of first object is:\n{media_objects[0].destination_group}')
