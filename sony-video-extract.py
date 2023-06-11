@@ -160,8 +160,6 @@ def rename_videos(source_directory, destination_directory, include_subdirectorie
     media.rename(destination_directory)
     print()
 
-  return sorted_media
-
   # for filename in video_files:
   #   file_path = os.path.join(source_directory, filename)
   #   creation_time = os.path.getmtime(file_path)
@@ -180,51 +178,10 @@ def rename_videos(source_directory, destination_directory, include_subdirectorie
 #     for media in media_files:
 #         media.rename(destination_directory)
 
-#### HIGHLY EXPERIMENTL ####
-from scipy.cluster.hierarchy import linkage, fcluster
-from datetime import datetime
-
-def cluster_objects(objects, split_by="none", cluster_threshold=86400): # 86400 is 24h in seconds
-  # Extract datetime values from objects
-  datetimes = [obj.creation_date for obj in objects]
-
-  # Calculate time differences between datetimes
-  time_diffs = [(dt - min(datetimes)).total_seconds() for dt in datetimes]
-
-  # Perform hierarchical clustering
-  Z = linkage(time_diffs, method='average')
-
-  # Assign clusters based on the given threshold
-  clusters = fcluster(Z, cluster_threshold, criterion='distance')
-
-  # Group objects based on clusters
-  grouped_objects = {}
-  for obj, cluster in zip(objects, clusters):
-    if cluster not in grouped_objects:
-      grouped_objects[cluster] = []
-    grouped_objects[cluster].append(obj)
-
-  # Format the grouped objects into destination paths
-  destination_paths = {}
-  for cluster, cluster_objects in grouped_objects.items():
-    cluster_datetime = min(obj.creation_date for obj in cluster_objects)
-    destination_path = cluster_objects[0].rename(
-        destination_directory, split_by)
-    destination_paths[cluster_datetime] = destination_path
-
-  return destination_paths
-
 if __name__ == "__main__":
   # Parse the command-line arguments
   source_directory, destination_directory, include_subdirectories = parse_arguments()
 
   # Call the rename_videos function
-  media_objects = rename_videos(source_directory, destination_directory,
+  rename_videos(source_directory, destination_directory,
                 include_subdirectories)
-
-  split_by = 'month'
-  cluster_threshold = 86400
-  destination_paths = cluster_objects(media_objects, split_by=split_by, cluster_threshold=cluster_threshold)
-  # Print the resulting destination paths
-  for datetime, path in destination_paths.items():
-    print(datetime, path)
