@@ -112,7 +112,7 @@ class Media:
     else:
       return False
 
-  def rename(self, destination_directory, split_by="year"):
+  def rename(self, destination_directory, group_by):
     # Extract date components
     year, month, day = self.creation_date.strftime("%Y-%m-%d").split("-")
     time_slug = self.creation_date.strftime("%H_%M_%S")
@@ -121,22 +121,22 @@ class Media:
     new_filename = f"{year}-{month}-{day}-{time_slug}-{self.filename}"
 
     # Set the destination file path
-    if split_by == "month":
+    if group_by == "month":
       destination_path = os.path.join(
           destination_directory, year, month, new_filename)
-    elif split_by == "year":
+    elif group_by == "year":
       destination_path = os.path.join(
           destination_directory, year, new_filename)
-    elif split_by == "day":
+    elif group_by == "day":
       destination_path = os.path.join(
           destination_directory, year, month, day, new_filename)
-    elif split_by == "cluster":
+    elif group_by == "cluster":
       destination_path = os.path.join(
-          destination_directory, year, self.destination_group, new_filename)
+          destination_directory, year, f'group-{self.destination_group}', new_filename)
     else:
       destination_path = os.path.join(
           destination_directory, new_filename)
-    print(f'Destination Path: {destination_path}')
+    # print(f'Destination Path: {destination_path}')
     return destination_path
 
     # Rename the file and move it to the destination directory
@@ -230,7 +230,8 @@ if __name__ == "__main__":
   for group_number, group_objects in grouped_objects:
     print(f"Group {group_number}:")
     for obj in group_objects:
-      print(obj.creation_date, obj.filename, obj.destination_group)
+      # print(obj.creation_date, obj.filename, obj.destination_group)
+      print(f'{obj.rename(destination_directory, group_by="cluster")}')
     print("---")  # Print a separator between groups
 
   print(
