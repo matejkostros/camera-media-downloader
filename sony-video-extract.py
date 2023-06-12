@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+
 import os
 from datetime import datetime
 import argparse
 from pathlib import Path
 import subprocess
-from PIL import Image
 from datetime import timedelta
+from PIL import Image
 
 import shutil
 import xml.etree.ElementTree as ET
@@ -14,24 +15,31 @@ import ffmpeg
 
 def parse_arguments():
   # Create an argument parser
-  parser = argparse.ArgumentParser(
-      description="Copy media and rename them with creation date")
+  parser = argparse.ArgumentParser(description="Copy media and rename them with creation date")
 
   # Add the source directory argument
-  parser.add_argument("-s", "--source-directory", nargs="?", default=os.getcwd(),
+  parser.add_argument("-s",
+                      "--source-directory",
+                      nargs="?",
+                      default=os.getcwd(),
                       help="Source directory path containing the video files (default: current working directory)")
 
   # Add the destination directory argument
-  parser.add_argument("-d", "--destination-directory", nargs="?", default="ProcessedMedia",
+  parser.add_argument("-d",
+                      "--destination-directory",
+                      nargs="?",
+                      default="ProcessedMedia",
                       help="Destination folder path (default: ProcessedMedia)")
 
   # Add the include subdirectories switch
-  parser.add_argument("-r", "--include-subdirectories", action="store_true",
-                      default=False, help="Include subdirectories in the source directory")
+  parser.add_argument("-r",
+                      "--include-subdirectories",
+                      action="store_true",
+                      default=False,
+                      help="Include subdirectories in the source directory")
 
   # Add the grouping method
-  parser.add_argument("-g", "--group-by", nargs="?", default="month",
-                      help="Group by [year,month,day,cluster]")
+  parser.add_argument("-g", "--group-by", nargs="?", default="month", help="Group by [year,month,day,cluster]")
 
   # Parse the command-line arguments
   args = parser.parse_args()
@@ -67,13 +75,12 @@ class Media:
     # Use ffprobe to extract the creation date metadata
     if self.media_type == "video":
       command = [
-          "ffprobe", "-v", "quiet", "-print_format", "compact=print_section=0:nokey=1:escape=csv",
-          "-show_entries", "format_tags=creation_time", self.file_path
+          "ffprobe", "-v", "quiet", "-print_format", "compact=print_section=0:nokey=1:escape=csv", "-show_entries",
+          "format_tags=creation_time", self.file_path
       ]
       output = subprocess.check_output(command).decode("utf-8").strip()
       # Parse the creation date
-      creation_date = datetime.strptime(
-          output, "%Y-%m-%dT%H:%M:%S.%fZ")
+      creation_date = datetime.strptime(output, "%Y-%m-%dT%H:%M:%S.%fZ")
 
     elif self.media_type == "image":
       try:
@@ -81,8 +88,7 @@ class Media:
           info = img._getexif()
           if info is not None and 36867 in info:
             creation_time_str = info[36867]
-            creation_date = datetime.strptime(
-                creation_time_str, '%Y:%m:%d %H:%M:%S')
+            creation_date = datetime.strptime(creation_time_str, '%Y:%m:%d %H:%M:%S')
 
       except (IOError, OSError, AttributeError):
         creation_time = os.path.getmtime(self.file_path)
@@ -122,20 +128,15 @@ class Media:
 
     # Set the destination file path
     if group_by == "month":
-      destination_path = os.path.join(
-          destination_directory, year, month, new_filename)
+      destination_path = os.path.join(destination_directory, year, month, new_filename)
     elif group_by == "year":
-      destination_path = os.path.join(
-          destination_directory, year, new_filename)
+      destination_path = os.path.join(destination_directory, year, new_filename)
     elif group_by == "day":
-      destination_path = os.path.join(
-          destination_directory, year, month, day, new_filename)
+      destination_path = os.path.join(destination_directory, year, month, day, new_filename)
     elif group_by == "cluster":
-      destination_path = os.path.join(
-          destination_directory, year, f'group-{self.destination_group}', new_filename)
+      destination_path = os.path.join(destination_directory, year, f'group-{self.destination_group}', new_filename)
     else:
-      destination_path = os.path.join(
-          destination_directory, new_filename)
+      destination_path = os.path.join(destination_directory, new_filename)
     # print(f'Destination Path: {destination_path}')
     return destination_path
 
@@ -189,6 +190,7 @@ def rename_videos(source_directory, destination_directory, include_subdirectorie
 #     for media in media_files:
 #         media.rename(destination_directory)
 
+
 def group_objects_by_datetime(objects, time_threshold):
   sorted_objects = sorted(objects, key=lambda obj: obj.creation_date)
 
@@ -201,10 +203,10 @@ def group_objects_by_datetime(objects, time_threshold):
 
   for i in range(1, len(sorted_objects)):
     current_object = sorted_objects[i]
-    previous_object = sorted_objects[i-1]
+    previous_object = sorted_objects[i - 1]
     time_diff = current_object.creation_date - previous_object.creation_date
     if time_diff > time_threshold:
-        # Add the current group to the grouped_objects list with the group number
+      # Add the current group to the grouped_objects list with the group number
       grouped_objects.append((group_number, current_group))
       current_group = [current_object]
       group_number += 1  # Increment group number
@@ -234,5 +236,4 @@ if __name__ == "__main__":
       print(f'{obj.rename(destination_directory, group_by=group_by)}')
     print("---")  # Print a separator between groups
 
-  print(
-      f'Proof, that objects are changed in place. Group of first object is:\n{media_objects[0].destination_group}')
+  print(f'Proof, that objects are changed in place. Group of first object is:\n{media_objects[0].destination_group}')
