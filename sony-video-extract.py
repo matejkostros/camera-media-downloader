@@ -53,6 +53,21 @@ def parse_arguments():
                       default="month",
                       help="Group media files by [year,month,day,cluster]")
 
+  # Add the include subdirectories switch
+  parser.add_argument("-l",
+                      "--list-only",
+                      action="store_true",
+                      default=False,
+                      help="If set, only script will only list media which will be processed")
+
+  # Optimize media file size with ffmpeg or image convert
+  parser.add_argument("-o",
+                      "--optimize-size",
+                      action="store_true",
+                      default=False,
+                      help=f"If set, it converts video and audio files to be more space efficient with"
+                      f"minimal impact on media quality.")
+
   # Parse the command-line arguments
   args = parser.parse_args()
 
@@ -62,8 +77,11 @@ def parse_arguments():
   include_subdirectories = args.include_subdirectories
   timeframe = timedelta(hours=args.timeframe)
   group_by = args.group_by
+  list_only = args.list_only
+  optimize_size = args.optimize_size
 
-  return source_directory, destination_directory, include_subdirectories, timeframe, group_by
+  return (source_directory, destination_directory, include_subdirectories, timeframe, group_by, list_only,
+          optimize_size)
 
 
 class InvalidDatetimeAttributeException(Exception):
@@ -208,7 +226,8 @@ def group_media_by_datetime(objects, time_threshold):
 
 if __name__ == "__main__":
   # Parse the command-line arguments
-  source_directory, destination_directory, include_subdirectories, timeframe, group_by = parse_arguments()
+  source_directory, destination_directory, include_subdirectories, \
+    timeframe, group_by, list_only, optimize_size = parse_arguments()
 
   time_threshold = timedelta(hours=24)  # Example time threshold of 1 hour
   media_objects = get_media_files(source_directory, include_subdirectories)
@@ -217,7 +236,7 @@ if __name__ == "__main__":
   # Process the grouped objects with group numbers
   for media in media_objects:
     media.set_destination_path(destination_directory, group_by=group_by)
-    print(f'Source: {media.file_path}, Destination {media.destination_path}')
+    print(f'Source: {media.file_path}, \t Destination {media.destination_path}')
 
   # # Media Destination
   # for media in media_objects:
