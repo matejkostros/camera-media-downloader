@@ -68,6 +68,13 @@ def parse_arguments():
                       help=f"If set, it converts video and audio files to be more space efficient with"
                       f"minimal impact on media quality.")
 
+  parser.add_argument("-q",
+                      "--quality",
+                      nargs="?",
+                      default=85,
+                      type=int,
+                      help=f"Configures the quality of media convertion in percentage")
+
   # Parse the command-line arguments
   args = parser.parse_args()
 
@@ -79,9 +86,10 @@ def parse_arguments():
   group_by = args.group_by
   list_only = args.list_only
   optimize_size = args.optimize_size
+  quality = args.quality
 
   return (source_directory, destination_directory, include_subdirectories, timeframe, group_by, list_only,
-          optimize_size)
+          optimize_size, quality)
 
 
 class InvalidDatetimeAttributeException(Exception):
@@ -175,6 +183,31 @@ class Media:
 
     self.destination_path = destination_path
 
+  def process_image(self, quality=85):
+    input_file = self.file_path
+    output_file = self.destination_path
+
+    with Image.open(input_file) as image:
+      image.save(output_file, optimize=True, quality=quality)
+
+  def copy(self, optimize_size, quality):
+    image_quality = quality
+
+    destination_dir = os.path.dirname(self.destination_path)
+    os.makedirs(destination_dir, exist_ok=True)
+
+    if optimize_size:
+      if self.media_type == 'video':
+        pass
+      if self.media_type == 'image':
+        self.process_image(image_quality=quality)
+      else:
+        pass
+
+    else:
+      print(f'Copying {self.file_path} to {self.destination_path}')
+      shutil.copy(self.file_path, self.destination_path)
+
 
 def sort_media_objects(media_objects):
   for obj in media_objects:
@@ -227,7 +260,7 @@ def group_media_by_datetime(objects, time_threshold):
 if __name__ == "__main__":
   # Parse the command-line arguments
   source_directory, destination_directory, include_subdirectories, \
-    timeframe, group_by, list_only, optimize_size = parse_arguments()
+    timeframe, group_by, list_only, optimize_size, quality = parse_arguments()
 
   time_threshold = timedelta(hours=24)  # Example time threshold of 1 hour
   media_objects = get_media_files(source_directory, include_subdirectories)
@@ -236,7 +269,8 @@ if __name__ == "__main__":
   # Process the grouped objects with group numbers
   for media in media_objects:
     media.set_destination_path(destination_directory, group_by=group_by)
-    print(f'Source: {media.file_path}, \t Destination {media.destination_path}')
+    media.copy(optimize_size, quality)
+    # print(f'Source: {media.file_path}, \t Destination {media.destination_path}')
 
   # # Media Destination
   # for media in media_objects:
