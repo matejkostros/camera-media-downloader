@@ -198,7 +198,7 @@ class Media:
       image.save(output_file, optimize=True, quality=quality)
 
   def file_copy(self, source, destination):
-    shutil.copy(source, destination)
+    shutil.copy2(source, destination)
 
   def destination_filename(self):
     # Format the new filename
@@ -236,8 +236,10 @@ class Media:
     if optimize_size != "none":
       if self.media_type == optimize_size == 'video':
         self.process_video(source, destination_path, quality)
-      if self.media_type == optimize_size == 'image':
+      elif self.media_type == optimize_size == 'image':
         self.process_image(source, destination_path, quality)
+      else:
+        self.file_copy(source, destination_path)
     else:
       self.file_copy(source, destination_path)
 

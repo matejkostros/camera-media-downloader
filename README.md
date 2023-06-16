@@ -2,14 +2,15 @@
 
 Use this python utility to load media files from your sd card and categorize them
 Example usage:
+
 **Windows**
 ```powershell
-python.exe sony-video-extractor.py --include-subdirectories -s "C:\Users\matej.kostros\Downloads\mediaDump" -d "C:\Users\matej.kostros\Downloads\mediaDumpProcessed" -g cluster -t "24" -o "video"
+python.exe sony-video-extract.py --include-subdirectories -s "C:\Users\matej.kostros\Downloads\mediaDump" -d "C:\Users\matej.kostros\Downloads\mediaDumpProcessed" -g cluster -t "24" -o "video"
 
 ```
 **Linux**
 ```bash
-python sony-video-extractor.py --include-subdirectories -s "/mnt/media/sdcard" -d "~/Media/" -g cluster -t "24" -o "video"
+python sony-video-extract.py --include-subdirectories -s "/mnt/media/sdcard" -d "~/Media/" -g cluster -t "24" -o "video"
 ```
 
 **Usage**
@@ -36,4 +37,9 @@ options:
                         If set, it converts your media files to be more space efficient withminimal impact on media quality. Options: [none(default)|all|audio|video|image]
   -q [QUALITY], --quality [QUALITY]
                         Configures the quality of media convertion in percentage
+```
+**Prerequisites for Linux**
+```
+python -m pip install pillow
+sudo apt install ffmpeg
 ```
