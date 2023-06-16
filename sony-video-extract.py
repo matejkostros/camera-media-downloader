@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
 import os
+import platform
 from datetime import datetime
 import argparse
-from pathlib import Path
 import subprocess
 from datetime import timedelta
 from PIL import Image
 
+
 import shutil
 import xml.etree.ElementTree as ET
-import ffmpeg
 
 
 def parse_arguments():
@@ -63,15 +63,15 @@ def parse_arguments():
   # Optimize media file size with ffmpeg or image convert
   parser.add_argument("-o",
                       "--optimize-size",
-                      action="store_true",
-                      default=False,
-                      help=f"If set, it converts video and audio files to be more space efficient with"
-                      f"minimal impact on media quality.")
+                      nargs="?",
+                      default="none",
+                      help=f"If set, it converts your media files to be more space efficient with"
+                      f"minimal impact on media quality. Options: [none(default)|all|audio|video|image]")
 
   parser.add_argument("-q",
                       "--quality",
                       nargs="?",
-                      default=85,
+                      default=100,
                       type=int,
                       help=f"Configures the quality of media convertion in percentage")
 
@@ -102,10 +102,11 @@ class Media:
   image_extensions = (".jpg", ".jpeg", ".png", ".gif")
   media_extensions = video_extensions + audio_extensions + image_extensions
 
-  def __init__(self, file_path):
+  def __init__(self, file_path, destination_root):
     self.file_path = file_path
+    self.destination_root = destination_root
     self.filename = os.path.basename(file_path)
-    self.file_extension = os.path.splitext(self.filename)[1]
+    self.filename_clean, self.file_extension = os.path.splitext(self.filename)
     self.is_media = self.is_media()
     self.media_type = self.determine_media_type()
     self.creation_date = self.extract_creation_date()
@@ -161,52 +162,86 @@ class Media:
     else:
       return False
 
-  def set_destination_path(self, destination_directory, group_by):
-    # Extract date components
-    year, month, day = self.creation_date.strftime("%Y-%m-%d").split("-")
-    time_slug = self.creation_date.strftime("%H_%M_%S")
+  def process_video(self, input_file, output_file, quality):
+    operating_system = platform.system()
 
-    # Format the new filename
-    new_filename = f"{year}-{month}-{day}-{time_slug}-{self.filename.lstrip('_')}"
-
-    # Set the destination file path
-    if group_by == "month":
-      destination_path = os.path.join(destination_directory, year, month, new_filename)
-    elif group_by == "year":
-      destination_path = os.path.join(destination_directory, year, new_filename)
-    elif group_by == "day":
-      destination_path = os.path.join(destination_directory, year, month, day, new_filename)
-    elif group_by == "cluster":
-      destination_path = os.path.join(destination_directory, year, f'group-{self.destination_group}', new_filename)
+    if operating_system == "Windows":
+      ffmpeg_executable = r'C:\Users\matej.kostros\OneDrive - ZOOM International a.s\Desktop\Software\ffmpeg.exe'
     else:
-      destination_path = os.path.join(destination_directory, new_filename)
+      ffmpeg_executable = "ffmpeg"
+    # stream = ffmpeg.input(input_file)
+    # stream = ffmpeg.output(stream,
+    #                        output_file,
+    #                        vcodec="hevc",
+    #                        vtag="hvc1",
+    #                        crf=20,
+    #                        preset='fast',
+    #                        pix_fmt='yuv420p',
+    #                        acodec="aac",
+    #                        audio_bitrate="192k"
+    #                        )
+    # ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)
+    ffmpeg_cmd = [
+        ffmpeg_executable, "-y", "-i", input_file, "-c:v", "hevc", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
+        "-crf", "20", output_file
+    ]
 
-    self.destination_path = destination_path
+    # Execute the ffmpeg command
+    subprocess.run(ffmpeg_cmd)
 
-  def process_image(self, quality=85):
-    input_file = self.file_path
-    output_file = self.destination_path
-
-    with Image.open(input_file) as image:
+  def process_image(self, input_file, output_file, quality=90):
+    if "png" in self.file_extension.lower():
+      with Image.open(input_file) as image:
+        image.save(output_file, format='PNG')
+    else:
+      image = Image.open(input_file)
       image.save(output_file, optimize=True, quality=quality)
 
-  def copy(self, optimize_size, quality):
-    image_quality = quality
+  def file_copy(self, source, destination):
+    shutil.copy(source, destination)
 
-    destination_dir = os.path.dirname(self.destination_path)
+  def destination_filename(self):
+    # Format the new filename
+    destination_filename = f"{self.creation_date.strftime('%Y-%m-%d-%H_%M_%S')}-" \
+                   f"{self.filename_clean.lstrip('_')}{self.file_extension}"
+
+    return destination_filename
+
+  def destination_path(self, group_by):
+
+    year, month, day = self.creation_date.strftime("%Y-%m-%d").split("-")
+    destination = self.destination_root
+
+    # Set the destination directory
+    if group_by == "month":
+      destination_folder = os.path.join(destination, year, month)
+    elif group_by == "year":
+      destination_folder = os.path.join(destination, year)
+    elif group_by == "day":
+      destination_folder = os.path.join(destination, year, month, day)
+    elif group_by == "cluster":
+      destination_folder = os.path.join(destination, year, f'group-{self.destination_group}')
+    else:
+      destination_folder = os.path.join(destination)
+
+    return os.path.join(destination_folder, self.destination_filename())
+
+  def load(self, group_by, optimize_size, quality):
+    source = self.file_path
+    print(f'Loading: {source}', end='\t')
+    destination_path = self.destination_path(group_by)
+    destination_dir = os.path.dirname(destination_path)
     os.makedirs(destination_dir, exist_ok=True)
 
-    if optimize_size:
-      if self.media_type == 'video':
-        pass
-      if self.media_type == 'image':
-        self.process_image(image_quality=quality)
-      else:
-        pass
-
+    if optimize_size != "none":
+      if self.media_type == optimize_size == 'video':
+        self.process_video(source, destination_path, quality)
+      if self.media_type == optimize_size == 'image':
+        self.process_image(source, destination_path, quality)
     else:
-      print(f'Copying {self.file_path} to {self.destination_path}')
-      shutil.copy(self.file_path, self.destination_path)
+      self.file_copy(source, destination_path)
+
+    print(f'Finished: {destination_path}')
 
 
 def sort_media_objects(media_objects):
@@ -216,14 +251,14 @@ def sort_media_objects(media_objects):
   return sorted(media_objects, key=lambda obj: obj.creation_date)
 
 
-def get_media_files(source_directory, include_subdirectories):
+def get_media_files(source_directory, destination_directory, include_subdirectories):
   media_files = []
   for root, dirs, files in os.walk(source_directory):
     if not include_subdirectories and root != source_directory:
       continue
     for file in files:
       file_path = os.path.join(root, file)
-      media = Media(file_path)
+      media = Media(file_path, destination_directory)
       if media.is_media:
         media_files.append(media)
 
@@ -263,13 +298,12 @@ if __name__ == "__main__":
     timeframe, group_by, list_only, optimize_size, quality = parse_arguments()
 
   time_threshold = timedelta(hours=24)  # Example time threshold of 1 hour
-  media_objects = get_media_files(source_directory, include_subdirectories)
+  media_objects = get_media_files(source_directory, destination_directory, include_subdirectories)
   group_media_by_datetime(media_objects, timeframe)
 
   # Process the grouped objects with group numbers
   for media in media_objects:
-    media.set_destination_path(destination_directory, group_by=group_by)
-    media.copy(optimize_size, quality)
+    media.load(group_by, optimize_size, quality)
     # print(f'Source: {media.file_path}, \t Destination {media.destination_path}')
 
   # # Media Destination
